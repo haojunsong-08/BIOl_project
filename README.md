@@ -13,5 +13,6 @@ conda activate project
 ## From now on, You can access the package can submit PBS script with the following at the beginning
 By actiavting conda environment
 ```
+module load anaconda3/2021.05
 conda activate project
 ```
