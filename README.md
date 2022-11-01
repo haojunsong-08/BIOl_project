@@ -10,9 +10,12 @@ conda config --add channels conda-forge
 conda config --set channel_priority strict
 conda create --name project_seurat r-base jupyter python=3.6
 conda activate project_seurat
-conda install -c r r-irkernel
+conda install r-seurat
+conda install -c conda-forge r-irkernel
 
 ```
+<img width="1206" alt="Screen Shot 2022-11-01 at 13 39 14" src="https://user-images.githubusercontent.com/84302343/199300837-d660be34-b85a-4c72-b964-875597f77bda.png">
+
 ## From now on, You can access the package can submit PBS script with the following at the beginning
 By actiavting conda environment
 ```
