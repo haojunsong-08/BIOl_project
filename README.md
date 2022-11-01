@@ -9,7 +9,7 @@ module load anaconda3/2021.05
 conda config --add channels conda-forge
 conda config --set channel_priority strict
 conda create --name project_seurat r-base jupyter python=3.6
-conda activate project
+conda activate project_seurat
 conda install -c r r-irkernel
 
 ```
@@ -17,5 +17,5 @@ conda install -c r r-irkernel
 By actiavting conda environment
 ```
 module load anaconda3/2021.05
-conda activate project
+conda activate project_seurat
 ```
