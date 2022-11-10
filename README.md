@@ -12,6 +12,7 @@ conda create --name project_seurat r-base jupyter python=3.6
 conda activate project_seurat
 conda install r-seurat
 conda install -c conda-forge r-irkernel
+conda install -c conda-forge r-hdf5r
 
 ```
 <img width="1206" alt="Screen Shot 2022-11-01 at 13 39 14" src="https://user-images.githubusercontent.com/84302343/199300837-d660be34-b85a-4c72-b964-875597f77bda.png">
