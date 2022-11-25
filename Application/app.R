@@ -8,9 +8,10 @@ library(dplyr)
 library(shiny)
 library(hdf5r)
 
+
 #Importing data
-data_dir1 = "Anterior/spatial"
-data_dir2 = "Anterior"
+data_dir1 = "/Users/mosun/Desktop/BIOL 8803/spatial/Anterior/spatial"
+data_dir2 = "/Users/mosun/Desktop/BIOL 8803/spatial/Anterior"
 
 #Some other shit loading
 Anterior.brain = Seurat::Read10X_Image(data_dir1, image.name = 'tissue_lowres_image.png')
@@ -21,6 +22,7 @@ brain1 = Load10X_Spatial(data.dir=data_dir2,
                          slice='slice1',
                          image = Anterior.brain
 )
+
 
 brain1@images[["slice1"]]@coordinates[["tissue"]] <- as.integer(brain1@images[["slice1"]]@coordinates[["tissue"]])
 brain1@images[["slice1"]]@coordinates[["row"]] <- as.integer(brain1@images[["slice1"]]@coordinates[["row"]])
@@ -55,7 +57,7 @@ ui <- fluidPage(theme = shinytheme("spacelab"),
                                  width = "220px"),
                      selectInput(inputId = "Neighbor",
                                  label = "Select Event",
-                                 choices = c(10, 20, 30, 40, 50),
+                                 choices = c(5, 10, 15, 20, 30),
                                  selected = 10,
                                  width = "220px"),
                     ),
@@ -176,17 +178,16 @@ server <- function(input, output) {
   result_UMAP <- reactive(
     {
       brain1 <- SCTransform(brain1, assay = "Spatial", verbose = FALSE)
-      
-      brain1 = RunPCA(brain1, verbose = FALSE)
+      brain1 = RunPCA(brain1, assay = "SCT", verbose = FALSE)
       brain1 <- FindNeighbors(brain1,  reduction = "pca",dims = 1:input$Neighbor)
       brain1 <- FindClusters(brain1, verbose = FALSE)
       brain1 <- RunUMAP(brain1,  reduction = "pca",dims = 1:input$Neighbor)
     }
   )
   output$UMAP_plot <- renderPlot({
-    p1 <- DimPlot(brain1, reduction = "umap", label = TRUE)
-    p2 <- SpatialDimPlot(brain1, label = TRUE, label.size = 3)
-    p1
+    p1 <- DimPlot(result_UMAP(), reduction = "umap", label = TRUE)
+    p2 <- SpatialDimPlot(result_UMAP(), label = TRUE)
+    p1+p2
   })
   output$txtout <- renderText({
     paste( input$txt1, input$txt2, sep = " " )
