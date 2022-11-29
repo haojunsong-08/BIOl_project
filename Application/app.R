@@ -11,7 +11,8 @@ library(hdf5r)
 
 #Importing data
 data_dir1 = "/Users/mosun/Desktop/BIOL 8803/spatial/Anterior/spatial"
-data_dir2 = "/Users/mosun/Desktop/BIOL 8803/spatial/Anterior"
+data_dir2 = "/Users/mosun/Desktop/BIOL 8803/spatial/Anterior" 
+data_dir_allen_cortex="/Users/mosun/Desktop/BIOL 8803/allen_cortex.rds"
 
 #Some other shit loading
 Anterior.brain = Seurat::Read10X_Image(data_dir1, image.name = 'tissue_lowres_image.png')
@@ -23,6 +24,7 @@ brain1 = Load10X_Spatial(data.dir=data_dir2,
                          image = Anterior.brain
 )
 
+cortex.all = readRDS(data_dir_allen_cortex)
 
 brain1@images[["slice1"]]@coordinates[["tissue"]] <- as.integer(brain1@images[["slice1"]]@coordinates[["tissue"]])
 brain1@images[["slice1"]]@coordinates[["row"]] <- as.integer(brain1@images[["slice1"]]@coordinates[["row"]])
@@ -42,20 +44,20 @@ ui <- fluidPage(theme = shinytheme("spacelab"),
                 navbarPage(
                   theme = "spacelab",
                   "ScRNA-Spatial-Mapping",
-                  tabPanel("Backgorund", 
+                  tabPanel("Background", 
                            includeHTML("background.html"),
                            ),
-                  navbarMenu("Cortex",
-                    tabPanel("UMAP",
+                  navbarMenu("Clustering",
+                    tabPanel("Spatial Data",
                     sidebarPanel(
                       titlePanel("UMAP Input selection"),
                         
-                     selectInput(inputId = "cell_type",
+                     selectInput(inputId = "cell_type1",
                                  label = "Select Event",
                                  choices = c("mouse", "cortex"),
                                  selected = "mouse",
                                  width = "220px"),
-                     selectInput(inputId = "Neighbor",
+                     selectInput(inputId = "Neighbor1",
                                  label = "Select Event",
                                  choices = c(5, 10, 15, 20, 30),
                                  selected = 10,
@@ -65,30 +67,30 @@ ui <- fluidPage(theme = shinytheme("spacelab"),
                       plotOutput(outputId = "UMAP_plot")
                     )
                     ),
-                    tabPanel("Interactive Something",
+                    tabPanel("Single Cell Data",
                     "Intentionally left blank",
-                      sidebarPanel(
-                              tags$h3("Input:"),
-                              textInput("txt1", "Given Name:", ""),
-                              textInput("txt2", "Surname:", ""),
-                              
-                            ), # sidebarPanel
-                            mainPanel(
-                              h1("Header 1"),
-                              
-                              h4("Output 1"),
-                              verbatimTextOutput("txtout"),
-                              
-                            ), # mainPanel
+                    sidebarPanel(
+                      titlePanel("UMAP Input selection"),
+                      
+                      selectInput(inputId = "cell_type2",
+                                  label = "Select Event",
+                                  choices = c("mouse", "cortex"),
+                                  selected = "mouse",
+                                  width = "220px"),
+                      selectInput(inputId = "Neighbor2",
+                                  label = "Select Event",
+                                  choices = c(5, 10, 15, 20, 30),
+                                  selected = 10,
+                                  width = "220px"),
+                    ),
+                    mainPanel(
+                      plotOutput(outputId = "UMAP_plot_sc")
+                    )
                   ),
                   ),
-                  tabPanel("Hippoccus", "This panel is intentionally left blank"),
+                  tabPanel("Co-localization"),
                   tabPanel("About us", 
                            fluidRow(
-                             shiny::HTML("<br><br><center> 
-                                            <h1>About App</h1> 
-                                            <h4>What's behind the data.</h4>
-                                            </center>"),
                              style = "height:250px;"),
                            fluidRow(
                              div(align = "center",
@@ -179,9 +181,9 @@ server <- function(input, output) {
     {
       brain1 <- SCTransform(brain1, assay = "Spatial", verbose = FALSE)
       brain1 = RunPCA(brain1, assay = "SCT", verbose = FALSE)
-      brain1 <- FindNeighbors(brain1,  reduction = "pca",dims = 1:input$Neighbor)
+      brain1 <- FindNeighbors(brain1,  reduction = "pca",dims = 1:input$Neighbor1)
       brain1 <- FindClusters(brain1, verbose = FALSE)
-      brain1 <- RunUMAP(brain1,  reduction = "pca",dims = 1:input$Neighbor)
+      brain1 <- RunUMAP(brain1,  reduction = "pca",dims = 1:input$Neighbor1)
     }
   )
   output$UMAP_plot <- renderPlot({
@@ -189,9 +191,20 @@ server <- function(input, output) {
     p2 <- SpatialDimPlot(result_UMAP(), label = TRUE)
     p1+p2
   })
-  output$txtout <- renderText({
-    paste( input$txt1, input$txt2, sep = " " )
-  })
+  result_UMAP2 <- reactive(
+    {
+      cortex.all <- SCTransform(cortex.all, ncells = 3000, verbose = FALSE)
+      cortex.all <-  RunPCA(cortex.all, verbose = FALSE)
+      cortex.all <-  RunUMAP(cortex.all, dims = 1:input$Neighbour2)
+    })
+  output$UMAP_plot_sc <- renderPlot({
+    p1 <- DimPlot(result_UMAP2(), group.by = "subclass",label = TRUE)
+    p1
+    }
+  )
+  
+  
+  
 } # server
 
 
