@@ -1,4 +1,14 @@
 # BIOl_project
+## Please Ensure the following dependencies are installed
+```
+install.packages(c("shiny", "shinythemes", "Seurat", "ggplot2", "patchwork", "dplyr", "hdf5r", "visNetwork", "viridis", "ConsensusClusterPlus", "devtools", "ggpubr" , "pheatmap"))
+library(devtools)
+install_github("navinlabcode/CellTrek")
+```
+## Please also make sure the data is stored in the appropriate folder and create a folder for the rds data
+# Especially the Anterior and Rds_data folder , so there will be no need for changing the script
+![Screenshot 2022-11-29 at 21 49 06](https://user-images.githubusercontent.com/84302343/204695777-bba5cc46-ccf5-454f-9e32-897a9b63cdb0.png)
+
 ## when you first time create an conda environment
 Log on your pace-ice.pace.gatech.edu and enter your login and password
 
