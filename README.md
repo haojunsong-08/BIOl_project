@@ -10,7 +10,7 @@ install_github("navinlabcode/CellTrek")
 ![Screenshot 2022-11-29 at 21 49 06](https://user-images.githubusercontent.com/84302343/204695777-bba5cc46-ccf5-454f-9e32-897a9b63cdb0.png)
 
 ## Flow chart of the pipeline!
-[flowchart](https://user-images.githubusercontent.com/84302343/204696157-fb5df33f-9d35-4b48-8a01-21b05112252a.png)
+![flowchart](https://user-images.githubusercontent.com/84302343/204696157-fb5df33f-9d35-4b48-8a01-21b05112252a.png)
 
 
 ## when you first time create an conda environment
