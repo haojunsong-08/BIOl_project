@@ -1,11 +1,13 @@
 # Load R packages
+#install.packages(c("shiny", "shinythemes", "Seurat", "ggplot2", "patchwork", "dplyr", "hdf5r", "visNetwork", "viridis", "ConsensusClusterPlus", "devtools", "ggpubr" , "pheatmap"))
+#library(devtools)
+#install_github("navinlabcode/CellTrek")
 library(shiny)
 library(shinythemes)
 library(Seurat)
 library(ggplot2)
 library(patchwork)
 library(dplyr)
-library(shiny)
 library(hdf5r)
 library(visNetwork)
 library(viridis)
@@ -13,8 +15,8 @@ library(ConsensusClusterPlus)
 library(CellTrek)
 
 #Importing data
-data_dir1 = "/Users/mosun/Desktop/BIOL 8803/spatial/Anterior/spatial"
-data_dir2 = "/Users/mosun/Desktop/BIOL 8803/spatial/Anterior" 
+data_dir1 = "Anterior/spatial"
+data_dir2 = "Anterior" 
 
 #Some other shit loading
 Anterior.brain = Seurat::Read10X_Image(data_dir1, image.name = 'tissue_lowres_image.png')
@@ -36,12 +38,23 @@ brain1@project.name <-"anterior"
 Idents(brain1) <-"anterior"
 brain1$orig.ident <-"anterior"
 
-
+## Cell_type Distribution
+cortex = readRDS('Rds_data/cortex.rds')
+cortex.all<-readRDS("Rds_data/allen_cortex.rds")
+cortex.all <- SCTransform(cortex.all, ncells = 3000, verbose = FALSE) %>%
+  RunPCA(verbose = FALSE) %>%
+  RunUMAP(dims = 1:30)
+anchors <- FindTransferAnchors(reference = cortex.all, query = cortex,
+                               reference.assay = 'SCT', query.assay = 'SCT',normalization.method = "SCT", verbose = T, reduction = 'cca')
+predictions.assay <- TransferData(anchorset = anchors, refdata = cortex.all$subclass, prediction.assay = TRUE,
+                                  weight.reduction = cortex[["pca"]], dims = 1:30)
+cortex[["predictions"]] <- predictions.assay
+DefaultAssay(cortex) <- "predictions"
 ## cell_cololization
 #setwd(dir="/Users/mosun/Desktop/BIOL 8803/")
-cortex_st = readRDS("/Users/mosun/Desktop/BIOL 8803/cortex.rds")
+cortex_st = readRDS("Rds_data/cortex.rds")
 
-cortex_sc = readRDS("/Users/mosun/Desktop/BIOL 8803/allen_cortex.rds")
+cortex_sc = readRDS("Rds_data/allen_cortex.rds")
 
 cortex_st <- RenameCells(cortex_st, new.names=make.names(Cells(cortex_st)))
 cortex_sc <- RenameCells(cortex_sc, new.names=make.names(Cells(cortex_sc)))
@@ -78,6 +91,7 @@ brain_cell_class_new <- merge(brain_cell_class, brain_celltrek_count, by.x ="id"
 mst_cons_am <- brain_sgraph_KL_mst_cons
 mst_cons_node <- data.frame(id=rownames(mst_cons_am), label=rownames(mst_cons_am))
 directed=F  
+meta_data= NULL
 if (!directed) mst_cons_am[upper.tri(mst_cons_am, diag = T)] <- NA
   
 mst_cons_am <- data.frame(id=rownames(mst_cons_am), mst_cons_am, check.names=F)
@@ -94,9 +108,9 @@ ui <- fluidPage(theme = shinytheme("spacelab"),
                            includeHTML("background.html"),
                            ),
                   navbarMenu("Cortex",
-                    tabPanel("UMAP",
+                    tabPanel("Spatial UMAP",
                     sidebarPanel(
-                      titlePanel("UMAP Input selection"),
+                      titlePanel("UMAP Input Selection"),
                         
                      selectInput(inputId = "cell_type",
                                  label = "Tissue",
@@ -118,8 +132,41 @@ ui <- fluidPage(theme = shinytheme("spacelab"),
                       plotOutput(outputId = "UMAP_plot2")
                     )
                     ),
+                    tabPanel("Single Cell UMAP",
+                             sidebarPanel(
+                               titlePanel("UMAP Input selection"),
+                               
+                               selectInput(inputId = "cell_type2",
+                                           label = "Select Event",
+                                           choices = c("mouse", "cortex"),
+                                           selected = "mouse",
+                                           width = "220px"),
+                               selectInput(inputId = "Neighbor2",
+                                           label = "Select Event",
+                                           choices = c(5, 10, 15, 20, 30),
+                                           selected = 10,
+                                           width = "220px"),
+                             ),
+                             mainPanel(
+                               plotOutput(outputId = "UMAP_plot_sc")
+                             )
+                    ),
+                    tabPanel("Cell Type Distribution",
+                             sidebarPanel(
+                               titlePanel("CellType Feature Selection"),
+                               
+                               selectInput(inputId = "gene_id_2",
+                                           label = "Cell Type",
+                                           choices = c("Astro", "L2/3 IT", "L4", "L5 PT", "L5 IT", "L6 CT", "L6 IT", "L6b", "Oligo"),
+                                           selected = "Astro",
+                                           width = "220px"),
+                             ),
+                             mainPanel(
+                               plotOutput(outputId = "SaptialPlot")
+              
+                             )
+                    ),
                     tabPanel("Cell Colocalization",
-                    "Intentionally left blank",
                       sidebarPanel(
                         sliderInput('edge_val', 'Edge Value Cutoff',
                                     min=round(range(mst_cons_edge$value)[1], 2), max=round(range(mst_cons_edge$value)[2], 2), value=round(range(mst_cons_edge$value)[1], 2), step=diff(round(range(mst_cons_edge$value), 2))/100),
@@ -131,7 +178,9 @@ ui <- fluidPage(theme = shinytheme("spacelab"),
                         sliderInput('fontsize', 'FontSize', value=15, min=5, max=25),
                         tags$hr(),
                         actionButton('StopID', 'Stop')
-                      )
+                      ),
+                      mainPanel(
+                        visNetworkOutput("network", height = '800px'))
                   ),
                   tabPanel("Gene Coexpression",
                            sidebarPanel(
@@ -152,29 +201,17 @@ ui <- fluidPage(theme = shinytheme("spacelab"),
                            )
                   ),
                   ),
-                  tabPanel("Hippoccus", "This panel is intentionally left blank"),
                   tabPanel("About us", 
                            fluidRow(
                              shiny::HTML("<br><br><center> 
                                             <h1>About App</h1> 
-                                            <h4>What's behind the data.</h4>
+                                            <h4>What's behind the Process</h4>
                                             </center>"),
                              style = "height:250px;"),
                            fluidRow(
                              div(align = "center",
-                                 tags$span(h4("Something"), 
-                                           style = "font-weight:bold"
-                                 ))
-                           ),
-                           fluidRow(
-                             column(3),
-                             column(6,
-                                    tags$ul(
-                                      tags$li(h6("Bullet points")), 
-                                      tags$li(h6("Bullet POintss"))
-                                    )
-                             ),
-                             column(3)
+                                 tags$img(src = "flowchart.png")
+                                 )
                            ),
                            # TEAM BIO
                            fluidRow(
@@ -194,6 +231,21 @@ ui <- fluidPage(theme = shinytheme("spacelab"),
                            
                            fluidRow(
                              column(3),
+                             column(2,
+                                    div(class="panel panel-default", 
+                                        div(class="panel-body",  width = "600px",
+                                            align = "center",
+                                            div(
+                                              tags$img(src = "Mo_sun.jpeg", 
+                                                       width = "100px", height = "100px")
+                                            ),
+                                            div(
+                                              tags$h3("Mo Sun"),
+                                              tags$h5( tags$i("PHD Bioinformtaics       at Georgia Institute of Technology"))
+                                            )
+                                        )
+                                    )
+                             ),
                           
                              column(2,
                                     div(class="panel panel-default", 
@@ -209,6 +261,40 @@ ui <- fluidPage(theme = shinytheme("spacelab"),
                                             ),
                                             div(
                                               "I love learning and studying new things. "
+                                            )
+                                        )
+                                    )
+                             ),
+                             
+                             
+                             column(2,
+                                    div(class="panel panel-default", 
+                                        div(class="panel-body",  width = "600px",
+                                            align = "center",
+                                            div(
+                                              tags$img(src = "upaasana.jpg", 
+                                                       width = "100px", height = "100px")
+                                            ),
+                                            div(
+                                              tags$h3("Upaasana Krishnan"),
+                                              tags$h5( tags$i("MS Bioinformtaics       at Georgia Institute of Technology"))
+                                            )
+                                        )
+                                    )
+                             ),
+                             
+                             
+                             column(2,
+                                    div(class="panel panel-default", 
+                                        div(class="panel-body",  width = "600px",
+                                            align = "center",
+                                            div(
+                                              tags$img(src = "nidhi.jpg", 
+                                                       width = "100px", height = "100px")
+                                            ),
+                                            div(
+                                              tags$h3("Nidhi Koundinya"),
+                                              tags$h5( tags$i("MS Bioinformtaics       at Georgia Institute of Technology"))
                                             )
                                         )
                                     )
@@ -262,6 +348,20 @@ server <- function(input, output) {
   output$UMAP_plot2 <- renderPlot({
     SpatialFeaturePlot(result_UMAP(), features = input$gene)
   })
+  
+  result_UMAP2 <- reactive(
+    {
+      cortex.all
+    })
+  output$UMAP_plot_sc <- renderPlot({
+    p1 <- DimPlot(result_UMAP2(), group.by = "subclass",label = TRUE, reduction = 'umap')
+    p1
+  }
+  )
+  output$SaptialPlot <- renderPlot({
+    SpatialFeaturePlot(cortex, features = input$gene_id_2, pt.size.factor = 1.6, ncol = 2, crop = FALSE, alpha = c(0.1, 1))
+  })
+  
   output$network <- renderVisNetwork({
     if (!is.null(meta_data)) {
       if (input$node_col=='color') {
@@ -289,31 +389,27 @@ server <- function(input, output) {
                            arrows=list(to=list(enabled=directed, scaleFactor=.2)),
                            color=list(color='rgba(132, 132, 132, .5)'))
   })
-  gene_coexpression <- reactive(
-    {
-      brain_celltrek_l5 <- subset(brain_celltrek, subset=subclass==input$cell)
-      brain_celltrek_l5@assays$RNA@scale.data <- matrix(NA, 1, 1)
-      brain_celltrek_l5$cluster <- gsub(input$cluster, '', brain_celltrek_l5$cluster)
-      
-      brain_celltrek_l5 <- FindVariableFeatures(brain_celltrek_l5)
-      vst_df <- brain_celltrek_l5@assays$RNA@meta.features %>% data.frame %>% mutate(id=rownames(.))
-      nz_test <- apply(as.matrix(brain_celltrek_l5[['RNA']]@data), 1, function(x) mean(x!=0)*100)
-      hz_gene <- names(nz_test)[nz_test<20]
-      mt_gene <- grep('^Mt-', rownames(brain_celltrek_l5), value=T)
-      rp_gene <- grep('^Rpl|^Rps', rownames(brain_celltrek_l5), value=T)
-      vst_df <- vst_df %>% dplyr::filter(!(id %in% c(mt_gene, rp_gene, hz_gene))) %>% arrange(., -vst.variance.standardized)
-      feature_temp <- vst_df$id[1:2000]
-      brain_celltrek_l5_scoexp_res_cc <- CellTrek::scoexp(celltrek_inp=brain_celltrek_l5, assay='RNA', approach='cc', gene_select = feature_temp, sigm=140, avg_cor_min=.4, zero_cutoff=3, min_gen=40, max_gen=400)
-      l = list()
-      for (n in 1:length(brain_celltrek_l5_scoexp_res_cc$gs)){
-        l[[n]] <- rbind(data.frame(gene=c(brain_celltrek_l5_scoexp_res_cc$gs[[n]]), G= n))
-      }
-      brain_celltrek_l5_k = do.call(rbind,l)%>% 
-        magrittr::set_rownames(.$gene) %>% dplyr::select(-1)
-      
-    }
-  )
+  
   output$heatmap <- renderPlot({
+    brain_celltrek_l5 <- subset(brain_celltrek, subset=subclass==input$cell)
+    brain_celltrek_l5@assays$RNA@scale.data <- matrix(NA, 1, 1)
+    brain_celltrek_l5$cluster <- gsub(input$cluster, '', brain_celltrek_l5$cluster)
+    
+    brain_celltrek_l5 <- FindVariableFeatures(brain_celltrek_l5)
+    vst_df <- brain_celltrek_l5@assays$RNA@meta.features %>% data.frame %>% mutate(id=rownames(.))
+    nz_test <- apply(as.matrix(brain_celltrek_l5[['RNA']]@data), 1, function(x) mean(x!=0)*100)
+    hz_gene <- names(nz_test)[nz_test<20]
+    mt_gene <- grep('^Mt-', rownames(brain_celltrek_l5), value=T)
+    rp_gene <- grep('^Rpl|^Rps', rownames(brain_celltrek_l5), value=T)
+    vst_df <- vst_df %>% dplyr::filter(!(id %in% c(mt_gene, rp_gene, hz_gene))) %>% arrange(., -vst.variance.standardized)
+    feature_temp <- vst_df$id[1:2000]
+    brain_celltrek_l5_scoexp_res_cc <- CellTrek::scoexp(celltrek_inp=brain_celltrek_l5, assay='RNA', approach='cc', gene_select = feature_temp, sigm=140, avg_cor_min=.4, zero_cutoff=3, min_gen=40, max_gen=400)
+    l = list()
+    for (n in 1:length(brain_celltrek_l5_scoexp_res_cc$gs)){
+      l[[n]] <- rbind(data.frame(gene=c(brain_celltrek_l5_scoexp_res_cc$gs[[n]]), G= n))
+    }
+    brain_celltrek_l5_k = do.call(rbind,l)%>% 
+      magrittr::set_rownames(.$gene) %>% dplyr::select(-1)
     pheatmap::pheatmap(brain_celltrek_l5_scoexp_res_cc$wcor[rownames(brain_celltrek_l5_k), rownames(brain_celltrek_l5_k)], 
                        clustering_method='ward.D2', annotation_row=brain_celltrek_l5_k, show_rownames=F, show_colnames=F, 
                        treeheight_row=10, treeheight_col=10, annotation_legend = T, fontsize=8,

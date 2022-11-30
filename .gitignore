@@ -1,5 +1,7 @@
 *.DS_Store
 *.RData
 *.Rhistory
+*.rds
 *.Rproj.user
 Anterior/
+.RDataTmp/
